@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FRK Koçluk Sistemi - Giriş</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .kart {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  }
+  .logo {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 28px;
+    font-weight: 700;
+    color: #203a43;
+  }
+  .alt-yazi {
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus {
+    border-color: #2c5364;
+  }
+  button {
+    width: 100%;
+    padding: 13px;
+    margin-top: 24px;
+    background: #203a43;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  button:hover { background: #2c5364; }
+  button:disabled { background: #9ca3af; cursor: not-allowed; }
+  .hata {
+    background: #fee2e2;
+    color: #b91c1c;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 16px;
+    display: none;
+  }
+  .basarili {
+    background: #d1fae5;
+    color: #065f46;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 16px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="kart">
+  <div class="logo">FRK Koçluk Sistemi</div>
+  <div class="alt-yazi">Hesabınla giriş yap</div>
+
+  <label for="email">E-posta</label>
+  <input type="email" id="email" placeholder="ornek@eposta.com" autocomplete="email">
+
+  <label for="sifre">Şifre</label>
+  <input type="password" id="sifre" placeholder="••••••••" autocomplete="current-password">
+
+  <button id="girisBtn" onclick="girisYap()">Giriş Yap</button>
+
+  <div class="hata" id="hataMesaji"></div>
+  <div class="basarili" id="basariliMesaji"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://bzvonshxdfyyvbolbpci.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dm9uc2h4ZGZ5eXZib2xicGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjQ1MTIsImV4cCI6MjA5OTQ0MDUxMn0.0kNAp0V1M2AxYf6lmKD2aaslmW0YsaDJVlBzONru3OA";
+
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Sayfa açılınca zaten giriş yapılmış mı kontrol et
+  window.addEventListener('DOMContentLoaded', async () => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      yonlendir(session.user.id);
+    }
+  });
+
+  async function girisYap() {
+    const email = document.getElementById('email').value.trim();
+    const sifre = document.getElementById('sifre').value;
+    const btn = document.getElementById('girisBtn');
+    const hataDiv = document.getElementById('hataMesaji');
+    const basariliDiv = document.getElementById('basariliMesaji');
+
+    hataDiv.style.display = 'none';
+    basariliDiv.style.display = 'none';
+
+    if (!email || !sifre) {
+      hataDiv.textContent = 'Lütfen e-posta ve şifreni gir.';
+      hataDiv.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Giriş yapılıyor...';
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: sifre
+    });
+
+    if (error) {
+      hataDiv.textContent = 'Giriş başarısız: e-posta veya şifre hatalı.';
+      hataDiv.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Giriş Yap';
+      return;
+    }
+
+    basariliDiv.textContent = 'Giriş başarılı, yönlendiriliyorsun...';
+    basariliDiv.style.display = 'block';
+
+    await yonlendir(data.user.id);
+  }
+
+  async function yonlendir(userId) {
+    // kullanicilar tablosundan rolü çek
+    const { data: profil, error } = await supabaseClient
+      .from('kullanicilar')
+      .select('rol, ad_soyad')
+      .eq('id', userId)
+      .single();
+
+    if (error || !profil) {
+      alert('Profil bilgisi bulunamadı. Yönetici ile iletişime geç.');
+      return;
+    }
+
+    // Role göre yönlendirme (paneller ilerleyen adımlarda kurulacak)
+    switch (profil.rol) {
+      case 'yonetici':
+        window.location.href = 'yonetici.html';
+        break;
+      case 'ogretmen':
+        window.location.href = 'ogretmen.html';
+        break;
+      case 'ogrenci':
+        window.location.href = 'ogrenci.html';
+        break;
+      case 'veli':
+        window.location.href = 'veli.html';
+        break;
+      default:
+        alert('Tanımsız rol: ' + profil.rol);
+    }
+  }
+
+  // Enter tuşuyla giriş yapabilme
+  document.getElementById('sifre').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') girisYap();
+  });
+</script>
+
+</body>
+</html>
