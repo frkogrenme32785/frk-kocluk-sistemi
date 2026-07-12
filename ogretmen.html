@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Öğretmen Paneli - FRK Koçluk Sistemi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+  body { background: #f3f4f6; color: #1f2937; }
+  header {
+    background: #203a43; color: white; padding: 16px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 17px; }
+  header button {
+    background: transparent; border: 1px solid rgba(255,255,255,0.4);
+    color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .icerik { padding: 18px; max-width: 720px; margin: 0 auto; }
+
+  .secim-kutu {
+    background: white; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  select {
+    width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
+  }
+
+  .hafta-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #203a43; color: white; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+  }
+  .hafta-bar button {
+    background: rgba(255,255,255,0.15); border: none; color: white;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px;
+  }
+  .hafta-bar .hafta-baslik { font-size: 15px; font-weight: 600; text-align: center; }
+
+  .kutu {
+    background: white; border-radius: 10px; padding: 16px; margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .kutu h2 { font-size: 14px; margin-bottom: 12px; color: #203a43; }
+  .konu-adi { font-size: 17px; font-weight: 700; color: #203a43; }
+  .konu-yok { color: #9ca3af; font-size: 13px; font-style: italic; }
+
+  label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; margin: 8px 0 4px; }
+  input, textarea {
+    width: 100%; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;
+    font-family: inherit;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+
+  ul.baslik-liste { list-style: none; }
+  ul.baslik-liste li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px;
+  }
+  .sil-btn { color: #dc2626; cursor: pointer; font-size: 12px; background: none; border: none; }
+
+  button.ekle {
+    margin-top: 10px; background: #203a43; color: white; border: none;
+    padding: 9px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  button.ekle:hover { background: #2c5364; }
+
+  .odev-kart {
+    border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
+  }
+  .odev-kart .baslik { font-weight: 600; margin-bottom: 4px; }
+  .odev-kart .detay { color: #6b7280; font-size: 12px; margin-bottom: 6px; }
+  .durum-secim { display: flex; gap: 6px; margin-top: 4px; }
+  .durum-secim button {
+    flex: 1; padding: 6px; border-radius: 6px; border: 1px solid #d1d5db; background: white;
+    font-size: 11px; cursor: pointer;
+  }
+  .durum-secim button.aktif-yapilmadi { background: #fee2e2; border-color: #dc2626; color: #b91c1c; }
+  .durum-secim button.aktif-kismen { background: #fef3c7; border-color: #d97706; color: #92400e; }
+  .durum-secim button.aktif-tamamlandi { background: #d1fae5; border-color: #059669; color: #065f46; }
+
+  .diger-odev { background: #f9fafb; }
+  .rozet-salt {
+    font-size: 10px; background: #e5e7eb; color: #6b7280; padding: 2px 6px; border-radius: 10px; margin-left: 6px;
+  }
+
+  .mesaj { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-top: 8px; display: none; }
+  .basarili { background: #d1fae5; color: #065f46; }
+  .hata { background: #fee2e2; color: #b91c1c; }
+  .bos-durum { text-align: center; color: #9ca3af; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FRK Koçluk Sistemi — Öğretmen Paneli</h1>
+  <button onclick="cikisYap()">Çıkış Yap</button>
+</header>
+
+<div class="icerik">
+
+  <div class="secim-kutu">
+    <label>Öğrenci - Ders Seç</label>
+    <select id="atamaSecim" onchange="atamaDegisti()"></select>
+  </div>
+
+  <div id="anaGovde" style="display:none;">
+
+    <div class="hafta-bar">
+      <button onclick="haftaDegistir(-1)">◀ Önceki Hafta</button>
+      <div class="hafta-baslik" id="haftaBaslik">Hafta 1</div>
+      <button onclick="haftaDegistir(1)">Sonraki Hafta ▶</button>
+    </div>
+
+    <div class="kutu">
+      <h2>Bu Haftanın Konusu</h2>
+      <div id="konuGosterim"></div>
+    </div>
+
+    <div class="kutu" id="altBaslikKutusu" style="display:none;">
+      <h2>Konuya Başlamadan Önce Bilinmesi Gerekenler</h2>
+      <ul class="baslik-liste" id="altBaslikListesi"></ul>
+      <label>Yeni Alt Başlık</label>
+      <input type="text" id="yeniAltBaslik" placeholder="örn: Üslü Sayılar">
+      <button class="ekle" onclick="altBaslikEkle()">Ekle</button>
+    </div>
+
+    <div class="kutu">
+      <h2>Bu Haftanın Ödevleri (Bu Ders)</h2>
+      <div id="odevListesi"></div>
+
+      <label style="margin-top:14px;">Yeni Ödev Ekle</label>
+      <label>Gün</label>
+      <select id="odevGun">
+        <option>Pazartesi</option><option>Salı</option><option>Çarşamba</option>
+        <option>Perşembe</option><option>Cuma</option><option>Cumartesi</option><option>Pazar</option>
+      </select>
+      <label>Kaynak</label>
+      <input type="text" id="odevKaynak" placeholder="örn: Bilgi Sarmal">
+      <label>Sayfa Aralığı</label>
+      <input type="text" id="odevSayfa" placeholder="örn: 35-42">
+      <label>Soru Aralığı</label>
+      <input type="text" id="odevSoru" placeholder="örn: 1-40">
+      <label>Son Teslim Tarihi</label>
+      <input type="date" id="odevTeslim">
+      <label>Açıklama (opsiyonel)</label>
+      <textarea id="odevAciklama" placeholder="örn: Tekrar amaçlı çözülecek."></textarea>
+      <button class="ekle" onclick="odevEkle()">Ödevi Kaydet</button>
+      <div class="mesaj basarili" id="odevBasarili"></div>
+    </div>
+
+    <div class="kutu" id="digerDersKutusu">
+      <h2>Öğrencinin Diğer Derslerdeki Ödevleri (Bu Hafta)</h2>
+      <div id="digerOdevListesi"></div>
+    </div>
+
+    <div class="kutu">
+      <h2>Öğretmen Notu (Bu Hafta)</h2>
+      <textarea id="ogretmenNotu" placeholder="örn: Bu hafta konu kavrandı. Problem çözüm hızı artırılmalı."></textarea>
+      <button class="ekle" onclick="notKaydet()">Notu Kaydet</button>
+      <div class="mesaj basarili" id="notBasarili"></div>
+    </div>
+
+  </div>
+
+  <div id="bosDurum" class="bos-durum">Henüz sana atanmış bir öğrenci-ders bulunmuyor.</div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = "https://bzvonshxdfyyvbolbpci.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dm9uc2h4ZGZ5eXZib2xicGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjQ1MTIsImV4cCI6MjA5OTQ0MDUxMn0.0kNAp0V1M2AxYf6lmKD2aaslmW0YsaDJVlBzONru3OA";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let benimId = null;
+  let atamalarim = [];
+  let seciliAtama = null;   // { id, ogrenci_id, ders_id, ogrenci_adi, ders_adi }
+  let mevcutHafta = 1;
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'index.html'; return; }
+
+    const { data: profil } = await sb.from('kullanicilar').select('rol').eq('id', session.user.id).single();
+    if (!profil || profil.rol !== 'ogretmen') {
+      alert('Bu sayfaya erişim yetkin yok.');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    benimId = session.user.id;
+    await atamalariYukle();
+  });
+
+  async function cikisYap() {
+    await sb.auth.signOut();
+    window.location.href = 'index.html';
+  }
+
+  async function atamalariYukle() {
+    const { data, error } = await sb
+      .from('ogrenci_ders_ogretmen')
+      .select('id, ogrenci_id, ders_id')
+      .eq('ogretmen_id', benimId);
+
+    if (error || !data || data.length === 0) {
+      document.getElementById('bosDurum').style.display = 'block';
+      return;
+    }
+
+    const ogrenciIdler = [...new Set(data.map(a => a.ogrenci_id))];
+    const dersIdler = [...new Set(data.map(a => a.ders_id))];
+
+    const { data: ogrenciler } = await sb.from('kullanicilar').select('id, ad_soyad').in('id', ogrenciIdler);
+    const { data: dersler } = await sb.from('dersler').select('id, ders_adi').in('id', dersIdler);
+
+    const ogrenciMap = {}; (ogrenciler || []).forEach(o => ogrenciMap[o.id] = o.ad_soyad);
+    const dersMap = {}; (dersler || []).forEach(d => dersMap[d.id] = d.ders_adi);
+
+    atamalarim = data.map(a => ({
+      id: a.id, ogrenci_id: a.ogrenci_id, ders_id: a.ders_id,
+      ogrenci_adi: ogrenciMap[a.ogrenci_id] || '?', ders_adi: dersMap[a.ders_id] || '?'
+    }));
+
+    const secim = document.getElementById('atamaSecim');
+    secim.innerHTML = atamalarim.map(a => `<option value="${a.id}">${a.ogrenci_adi} — ${a.ders_adi}</option>`).join('');
+
+    if (atamalarim.length > 0) {
+      document.getElementById('anaGovde').style.display = 'block';
+      atamaDegisti();
+    } else {
+      document.getElementById('bosDurum').style.display = 'block';
+    }
+  }
+
+  function atamaDegisti() {
+    const id = document.getElementById('atamaSecim').value;
+    seciliAtama = atamalarim.find(a => a.id === id);
+    mevcutHafta = 1;
+    haftayiYukle();
+  }
+
+  function haftaDegistir(yon) {
+    mevcutHafta = Math.max(1, mevcutHafta + yon);
+    haftayiYukle();
+  }
+
+  async function haftayiYukle() {
+    if (!seciliAtama) return;
+    document.getElementById('haftaBaslik').textContent = 'Hafta ' + mevcutHafta;
+
+    await konuyuYukle();
+    await odevleriYukle();
+    await digerDersOdevleriniYukle();
+    await notuYukle();
+  }
+
+  // ---- KONU ----
+  let mevcutKonuId = null;
+
+  async function konuyuYukle() {
+    const { data } = await sb
+      .from('mufredat_konulari')
+      .select('*')
+      .eq('ders_id', seciliAtama.ders_id)
+      .eq('hafta_no', mevcutHafta)
+      .maybeSingle();
+
+    const gosterim = document.getElementById('konuGosterim');
+    const altKutu = document.getElementById('altBaslikKutusu');
+
+    if (!data) {
+      gosterim.innerHTML = '<div class="konu-yok">Bu hafta için müfredatta konu tanımlanmamış. (Yönetici panelinden eklenebilir.)</div>';
+      altKutu.style.display = 'none';
+      mevcutKonuId = null;
+      return;
+    }
+
+    mevcutKonuId = data.id;
+    gosterim.innerHTML = `<div class="konu-adi">${data.konu_adi}</div>`;
+    altKutu.style.display = 'block';
+    altBasliklariYukle();
+  }
+
+  async function altBasliklariYukle() {
+    const { data } = await sb.from('konu_on_kosullari').select('*').eq('konu_id', mevcutKonuId).order('sira');
+    document.getElementById('altBaslikListesi').innerHTML = (data || []).map(b => `
+      <li>✔ ${b.alt_baslik} <button class="sil-btn" onclick="altBaslikSil('${b.id}')">Sil</button></li>
+    `).join('') || '<li style="color:#9ca3af;">Henüz alt başlık eklenmemiş.</li>';
+  }
+
+  async function altBaslikEkle() {
+    const metin = document.getElementById('yeniAltBaslik').value.trim();
+    if (!metin || !mevcutKonuId) return;
+    await sb.from('konu_on_kosullari').insert({ konu_id: mevcutKonuId, alt_baslik: metin });
+    document.getElementById('yeniAltBaslik').value = '';
+    altBasliklariYukle();
+  }
+
+  async function altBaslikSil(id) {
+    await sb.from('konu_on_kosullari').delete().eq('id', id);
+    altBasliklariYukle();
+  }
+
+  // ---- ÖDEVLER (bu ders) ----
+  async function odevleriYukle() {
+    const { data } = await sb
+      .from('odevler')
+      .select('*')
+      .eq('atama_id', seciliAtama.id)
+      .eq('hafta_no', mevcutHafta)
+      .order('created_at');
+
+    const liste = document.getElementById('odevListesi');
+    if (!data || data.length === 0) {
+      liste.innerHTML = '<div style="color:#9ca3af; font-size:13px;">Bu hafta için henüz ödev girilmemiş.</div>';
+      return;
+    }
+
+    liste.innerHTML = data.map(o => `
+      <div class="odev-kart">
+        <div class="baslik">${o.gun} — ${o.kaynak || ''}</div>
+        <div class="detay">
+          ${o.sayfa_araligi ? 'Sayfa: ' + o.sayfa_araligi + ' &nbsp;' : ''}
+          ${o.soru_araligi ? 'Soru: ' + o.soru_araligi + ' &nbsp;' : ''}
+          ${o.son_teslim ? 'Son teslim: ' + o.son_teslim : ''}
+        </div>
+        ${o.aciklama ? '<div class="detay">' + o.aciklama + '</div>' : ''}
+        <div class="durum-secim">
+          <button class="${o.durum === 'yapilmadi' ? 'aktif-yapilmadi' : ''}" onclick="durumGuncelle('${o.id}','yapilmadi')">Yapılmadı</button>
+          <button class="${o.durum === 'kismen' ? 'aktif-kismen' : ''}" onclick="durumGuncelle('${o.id}','kismen')">Kısmen</button>
+          <button class="${o.durum === 'tamamlandi' ? 'aktif-tamamlandi' : ''}" onclick="durumGuncelle('${o.id}','tamamlandi')">Tamamlandı</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function odevEkle() {
+    const gun = document.getElementById('odevGun').value;
+    const kaynak = document.getElementById('odevKaynak').value.trim();
+    const sayfa = document.getElementById('odevSayfa').value.trim();
+    const soru = document.getElementById('odevSoru').value.trim();
+    const teslim = document.getElementById('odevTeslim').value;
+    const aciklama = document.getElementById('odevAciklama').value.trim();
+
+    const { error } = await sb.from('odevler').insert({
+      atama_id: seciliAtama.id, hafta_no: mevcutHafta, gun: gun,
+      kaynak: kaynak || null, sayfa_araligi: sayfa || null, soru_araligi: soru || null,
+      son_teslim: teslim || null, aciklama: aciklama || null
+    });
+
+    const basariliDiv = document.getElementById('odevBasarili');
+    if (!error) {
+      basariliDiv.textContent = 'Ödev eklendi.';
+      basariliDiv.style.display = 'block';
+      document.getElementById('odevKaynak').value = '';
+      document.getElementById('odevSayfa').value = '';
+      document.getElementById('odevSoru').value = '';
+      document.getElementById('odevTeslim').value = '';
+      document.getElementById('odevAciklama').value = '';
+      odevleriYukle();
+    }
+  }
+
+  async function durumGuncelle(odevId, yeniDurum) {
+    await sb.from('odevler').update({ durum: yeniDurum }).eq('id', odevId);
+    odevleriYukle();
+  }
+
+  // ---- DİĞER DERSLERİN ÖDEVLERİ (aynı öğrenci, salt okunur) ----
+  async function digerDersOdevleriniYukle() {
+    const { data: digerAtamalar } = await sb
+      .from('ogrenci_ders_ogretmen')
+      .select('id, ders_id, ogretmen_id')
+      .eq('ogrenci_id', seciliAtama.ogrenci_id)
+      .neq('id', seciliAtama.id);
+
+    const kutu = document.getElementById('digerDersKutusu');
+    if (!digerAtamalar || digerAtamalar.length === 0) {
+      kutu.style.display = 'none';
+      return;
+    }
+    kutu.style.display = 'block';
+
+    const atamaIdler = digerAtamalar.map(a => a.id);
+    const { data: odevler } = await sb
+      .from('odevler').select('*').in('atama_id', atamaIdler).eq('hafta_no', mevcutHafta);
+
+    const dersIdler = [...new Set(digerAtamalar.map(a => a.ders_id))];
+    const { data: dersler } = await sb.from('dersler').select('id, ders_adi').in('id', dersIdler);
+    const dersMap = {}; (dersler || []).forEach(d => dersMap[d.id] = d.ders_adi);
+    const atamaDersMap = {}; digerAtamalar.forEach(a => atamaDersMap[a.id] = dersMap[a.ders_id] || '?');
+
+    const liste = document.getElementById('digerOdevListesi');
+    if (!odevler || odevler.length === 0) {
+      liste.innerHTML = '<div style="color:#9ca3af; font-size:13px;">Bu hafta diğer derslerde ödev girilmemiş.</div>';
+      return;
+    }
+
+    liste.innerHTML = odevler.map(o => `
+      <div class="odev-kart diger-odev">
+        <div class="baslik">${atamaDersMap[o.atama_id]} <span class="rozet-salt">salt okunur</span></div>
+        <div class="detay">${o.gun} — ${o.kaynak || ''} ${o.sayfa_araligi ? '(' + o.sayfa_araligi + ')' : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  // ---- ÖĞRETMEN NOTU (haftalık ilerleme) ----
+  let mevcutIlerlemeId = null;
+
+  async function notuYukle() {
+    const { data } = await sb
+      .from('haftalik_ilerleme')
+      .select('*')
+      .eq('atama_id', seciliAtama.id)
+      .eq('hafta_no', mevcutHafta)
+      .maybeSingle();
+
+    mevcutIlerlemeId = data ? data.id : null;
+    document.getElementById('ogretmenNotu').value = data ? (data.ogretmen_notu || '') : '';
+    document.getElementById('notBasarili').style.display = 'none';
+  }
+
+  async function notKaydet() {
+    const metin = document.getElementById('ogretmenNotu').value.trim();
+
+    if (mevcutIlerlemeId) {
+      await sb.from('haftalik_ilerleme').update({ ogretmen_notu: metin, konu_id: mevcutKonuId }).eq('id', mevcutIlerlemeId);
+    } else {
+      const { data } = await sb.from('haftalik_ilerleme').insert({
+        atama_id: seciliAtama.id, hafta_no: mevcutHafta, konu_id: mevcutKonuId, ogretmen_notu: metin
+      }).select().single();
+      if (data) mevcutIlerlemeId = data.id;
+    }
+
+    const basariliDiv = document.getElementById('notBasarili');
+    basariliDiv.textContent = 'Not kaydedildi.';
+    basariliDiv.style.display = 'block';
+  }
+</script>
+
+</body>
+</html>
