@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yönetici Paneli - FRK Koçluk Sistemi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+  body { background: #f3f4f6; color: #1f2937; }
+  header {
+    background: #203a43; color: white; padding: 16px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 18px; }
+  header button {
+    background: transparent; border: 1px solid rgba(255,255,255,0.4);
+    color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .sekmeler {
+    display: flex; background: white; border-bottom: 1px solid #e5e7eb;
+    overflow-x: auto;
+  }
+  .sekme {
+    padding: 14px 18px; cursor: pointer; font-size: 14px; font-weight: 600;
+    color: #6b7280; border-bottom: 3px solid transparent; white-space: nowrap;
+  }
+  .sekme.aktif { color: #203a43; border-bottom-color: #2c5364; }
+  .icerik { padding: 20px; max-width: 900px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.aktif { display: block; }
+  .kutu {
+    background: white; border-radius: 10px; padding: 18px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .kutu h2 { font-size: 15px; margin-bottom: 14px; color: #203a43; }
+  label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; margin: 10px 0 4px; }
+  input, select {
+    width: 100%; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;
+  }
+  .satir { display: flex; gap: 10px; }
+  .satir > div { flex: 1; }
+  button.ekle {
+    margin-top: 14px; background: #203a43; color: white; border: none;
+    padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  button.ekle:hover { background: #2c5364; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #f0f0f0; }
+  th { color: #6b7280; font-weight: 600; font-size: 12px; }
+  .rozet {
+    display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .rozet.yonetici { background: #fef3c7; color: #92400e; }
+  .rozet.ogretmen { background: #dbeafe; color: #1e40af; }
+  .rozet.ogrenci { background: #d1fae5; color: #065f46; }
+  .rozet.veli { background: #ede9fe; color: #5b21b6; }
+  .mesaj { padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px; display: none; }
+  .basarili { background: #d1fae5; color: #065f46; }
+  .hata { background: #fee2e2; color: #b91c1c; }
+  .kucuk-not { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+  .sil-btn { color: #dc2626; cursor: pointer; font-size: 12px; background: none; border: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FRK Koçluk Sistemi — Yönetici Paneli</h1>
+  <button onclick="cikisYap()">Çıkış Yap</button>
+</header>
+
+<div class="sekmeler">
+  <div class="sekme aktif" data-panel="kullanicilar">Kullanıcılar</div>
+  <div class="sekme" data-panel="dersler">Dersler & Müfredat</div>
+  <div class="sekme" data-panel="atamalar">Atamalar</div>
+</div>
+
+<div class="icerik">
+
+  <!-- ============ KULLANICILAR PANELİ ============ -->
+  <div class="panel aktif" id="panel-kullanicilar">
+    <div class="kutu">
+      <h2>Yeni Kullanıcı Ekle (Öğretmen / Öğrenci / Veli)</h2>
+      <div class="kucuk-not">
+        Not: Önce Supabase Authentication → Users kısmından e-posta/şifre ile kullanıcıyı oluştur,
+        oradan aldığın UUID'yi buraya yapıştır. Bu form sadece profil kaydını (rol, isim) ekler.
+      </div>
+      <label>Kullanıcı UUID (Supabase Auth'tan)</label>
+      <input type="text" id="yeniUuid" placeholder="örn: 9480212b-ed82-47e7-9a66-dcd4de27e0fc">
+
+      <div class="satir">
+        <div>
+          <label>Ad Soyad</label>
+          <input type="text" id="yeniAdSoyad" placeholder="Ad Soyad">
+        </div>
+        <div>
+          <label>Rol</label>
+          <select id="yeniRol">
+            <option value="ogretmen">Öğretmen</option>
+            <option value="ogrenci">Öğrenci</option>
+            <option value="veli">Veli</option>
+            <option value="yonetici">Yönetici</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="satir">
+        <div>
+          <label>E-posta</label>
+          <input type="email" id="yeniEmail" placeholder="ornek@eposta.com">
+        </div>
+        <div>
+          <label>Telefon (opsiyonel)</label>
+          <input type="text" id="yeniTelefon" placeholder="05XX XXX XX XX">
+        </div>
+      </div>
+
+      <button class="ekle" onclick="kullaniciEkle()">Kullanıcıyı Kaydet</button>
+      <div class="mesaj basarili" id="kullaniciBasarili"></div>
+      <div class="mesaj hata" id="kullaniciHata"></div>
+    </div>
+
+    <div class="kutu">
+      <h2>Kayıtlı Kullanıcılar</h2>
+      <table>
+        <thead><tr><th>Ad Soyad</th><th>Rol</th><th>E-posta</th><th></th></tr></thead>
+        <tbody id="kullaniciTablosu"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ DERSLER & MÜFREDAT PANELİ ============ -->
+  <div class="panel" id="panel-dersler">
+    <div class="kutu">
+      <h2>Yeni Ders Ekle</h2>
+      <div class="satir">
+        <div style="flex:2">
+          <label>Ders Adı</label>
+          <input type="text" id="yeniDersAdi" placeholder="örn: Matematik">
+        </div>
+        <div style="flex:0 0 auto; display:flex; align-items:flex-end;">
+          <button class="ekle" onclick="dersEkle()">Ekle</button>
+        </div>
+      </div>
+      <div class="mesaj basarili" id="dersBasarili"></div>
+    </div>
+
+    <div class="kutu">
+      <h2>Ders Seç → Yıllık Müfredat</h2>
+      <label>Ders</label>
+      <select id="mufredatDersSecim" onchange="mufredatYukle()"></select>
+
+      <div class="satir" style="margin-top:14px;">
+        <div>
+          <label>Hafta No</label>
+          <input type="number" id="yeniHaftaNo" placeholder="1">
+        </div>
+        <div style="flex:2">
+          <label>Konu Adı</label>
+          <input type="text" id="yeniKonuAdi" placeholder="örn: Köklü Sayılar">
+        </div>
+      </div>
+      <button class="ekle" onclick="konuEkle()">Konuyu Ekle</button>
+      <div class="mesaj basarili" id="konuBasarili"></div>
+
+      <table>
+        <thead><tr><th>Hafta</th><th>Konu</th><th></th></tr></thead>
+        <tbody id="mufredatTablosu"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ ATAMALAR PANELİ ============ -->
+  <div class="panel" id="panel-atamalar">
+    <div class="kutu">
+      <h2>Yeni Atama (Öğrenci - Ders - Öğretmen)</h2>
+      <label>Öğrenci</label>
+      <select id="atamaOgrenci"></select>
+
+      <label>Ders</label>
+      <select id="atamaDers"></select>
+
+      <label>Öğretmen</label>
+      <select id="atamaOgretmen"></select>
+
+      <button class="ekle" onclick="atamaEkle()">Atamayı Kaydet</button>
+      <div class="mesaj basarili" id="atamaBasarili"></div>
+      <div class="mesaj hata" id="atamaHata"></div>
+    </div>
+
+    <div class="kutu">
+      <h2>Mevcut Atamalar</h2>
+      <table>
+        <thead><tr><th>Öğrenci</th><th>Ders</th><th>Öğretmen</th><th></th></tr></thead>
+        <tbody id="atamaTablosu"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = "https://bzvonshxdfyyvbolbpci.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6dm9uc2h4ZGZ5eXZib2xicGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjQ1MTIsImV4cCI6MjA5OTQ0MDUxMn0.0kNAp0V1M2AxYf6lmKD2aaslmW0YsaDJVlBzONru3OA";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---- Oturum kontrolü ----
+  window.addEventListener('DOMContentLoaded', async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { window.location.href = 'index.html'; return; }
+
+    const { data: profil } = await sb.from('kullanicilar').select('rol').eq('id', session.user.id).single();
+    if (!profil || profil.rol !== 'yonetici') {
+      alert('Bu sayfaya erişim yetkin yok.');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    kullanicilariYukle();
+    derslerYukle();
+  });
+
+  async function cikisYap() {
+    await sb.auth.signOut();
+    window.location.href = 'index.html';
+  }
+
+  // ---- Sekme geçişleri ----
+  document.querySelectorAll('.sekme').forEach(sekme => {
+    sekme.addEventListener('click', () => {
+      document.querySelectorAll('.sekme').forEach(s => s.classList.remove('aktif'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('aktif'));
+      sekme.classList.add('aktif');
+      document.getElementById('panel-' + sekme.dataset.panel).classList.add('aktif');
+    });
+  });
+
+  // ---- KULLANICILAR ----
+  async function kullaniciEkle() {
+    const uuid = document.getElementById('yeniUuid').value.trim();
+    const adSoyad = document.getElementById('yeniAdSoyad').value.trim();
+    const rol = document.getElementById('yeniRol').value;
+    const email = document.getElementById('yeniEmail').value.trim();
+    const telefon = document.getElementById('yeniTelefon').value.trim();
+
+    const basariliDiv = document.getElementById('kullaniciBasarili');
+    const hataDiv = document.getElementById('kullaniciHata');
+    basariliDiv.style.display = 'none';
+    hataDiv.style.display = 'none';
+
+    if (!uuid || !adSoyad || !email) {
+      hataDiv.textContent = 'UUID, Ad Soyad ve E-posta zorunlu.';
+      hataDiv.style.display = 'block';
+      return;
+    }
+
+    const { error } = await sb.from('kullanicilar').insert({
+      id: uuid, ad_soyad: adSoyad, rol: rol, email: email, telefon: telefon || null
+    });
+
+    if (error) {
+      hataDiv.textContent = 'Hata: ' + error.message;
+      hataDiv.style.display = 'block';
+      return;
+    }
+
+    basariliDiv.textContent = 'Kullanıcı eklendi.';
+    basariliDiv.style.display = 'block';
+    document.getElementById('yeniUuid').value = '';
+    document.getElementById('yeniAdSoyad').value = '';
+    document.getElementById('yeniEmail').value = '';
+    document.getElementById('yeniTelefon').value = '';
+    kullanicilariYukle();
+  }
+
+  let tumKullanicilar = [];
+
+  async function kullanicilariYukle() {
+    const { data, error } = await sb.from('kullanicilar').select('*').order('created_at', { ascending: false });
+    if (error) return;
+    tumKullanicilar = data;
+
+    const tablo = document.getElementById('kullaniciTablosu');
+    tablo.innerHTML = data.map(k => `
+      <tr>
+        <td>${k.ad_soyad}</td>
+        <td><span class="rozet ${k.rol}">${k.rol}</span></td>
+        <td>${k.email || '-'}</td>
+        <td><button class="sil-btn" onclick="kullaniciSil('${k.id}')">Sil</button></td>
+      </tr>
+    `).join('');
+
+    // Atama sekmesindeki select'leri doldur
+    const ogrenciler = data.filter(k => k.rol === 'ogrenci');
+    const ogretmenler = data.filter(k => k.rol === 'ogretmen');
+    document.getElementById('atamaOgrenci').innerHTML = ogrenciler.map(o => `<option value="${o.id}">${o.ad_soyad}</option>`).join('');
+    document.getElementById('atamaOgretmen').innerHTML = ogretmenler.map(o => `<option value="${o.id}">${o.ad_soyad}</option>`).join('');
+  }
+
+  async function kullaniciSil(id) {
+    if (!confirm('Bu kullanıcıyı silmek istediğine emin misin?')) return;
+    await sb.from('kullanicilar').delete().eq('id', id);
+    kullanicilariYukle();
+  }
+
+  // ---- DERSLER & MÜFREDAT ----
+  async function dersEkle() {
+    const adi = document.getElementById('yeniDersAdi').value.trim();
+    if (!adi) return;
+    const { error } = await sb.from('dersler').insert({ ders_adi: adi });
+    const basariliDiv = document.getElementById('dersBasarili');
+    if (!error) {
+      basariliDiv.textContent = 'Ders eklendi.';
+      basariliDiv.style.display = 'block';
+      document.getElementById('yeniDersAdi').value = '';
+      derslerYukle();
+    }
+  }
+
+  async function derslerYukle() {
+    const { data, error } = await sb.from('dersler').select('*').order('ders_adi');
+    if (error) return;
+    const secim = document.getElementById('mufredatDersSecim');
+    secim.innerHTML = data.map(d => `<option value="${d.id}">${d.ders_adi}</option>`).join('');
+    document.getElementById('atamaDers').innerHTML = data.map(d => `<option value="${d.id}">${d.ders_adi}</option>`).join('');
+    if (data.length > 0) mufredatYukle();
+    atamalariYukle();
+  }
+
+  async function konuEkle() {
+    const dersId = document.getElementById('mufredatDersSecim').value;
+    const haftaNo = document.getElementById('yeniHaftaNo').value;
+    const konuAdi = document.getElementById('yeniKonuAdi').value.trim();
+
+    if (!dersId || !haftaNo || !konuAdi) return;
+
+    const { error } = await sb.from('mufredat_konulari').insert({
+      ders_id: dersId, hafta_no: parseInt(haftaNo), konu_adi: konuAdi
+    });
+
+    if (!error) {
+      document.getElementById('konuBasarili').textContent = 'Konu eklendi.';
+      document.getElementById('konuBasarili').style.display = 'block';
+      document.getElementById('yeniHaftaNo').value = '';
+      document.getElementById('yeniKonuAdi').value = '';
+      mufredatYukle();
+    }
+  }
+
+  async function mufredatYukle() {
+    const dersId = document.getElementById('mufredatDersSecim').value;
+    if (!dersId) return;
+    const { data, error } = await sb.from('mufredat_konulari').select('*').eq('ders_id', dersId).order('hafta_no');
+    if (error) return;
+    document.getElementById('mufredatTablosu').innerHTML = data.map(k => `
+      <tr>
+        <td>Hafta ${k.hafta_no}</td>
+        <td>${k.konu_adi}</td>
+        <td><button class="sil-btn" onclick="konuSil('${k.id}')">Sil</button></td>
+      </tr>
+    `).join('');
+  }
+
+  async function konuSil(id) {
+    await sb.from('mufredat_konulari').delete().eq('id', id);
+    mufredatYukle();
+  }
+
+  // ---- ATAMALAR ----
+  async function atamaEkle() {
+    const ogrenciId = document.getElementById('atamaOgrenci').value;
+    const dersId = document.getElementById('atamaDers').value;
+    const ogretmenId = document.getElementById('atamaOgretmen').value;
+
+    const basariliDiv = document.getElementById('atamaBasarili');
+    const hataDiv = document.getElementById('atamaHata');
+    basariliDiv.style.display = 'none';
+    hataDiv.style.display = 'none';
+
+    if (!ogrenciId || !dersId || !ogretmenId) {
+      hataDiv.textContent = 'Öğrenci, ders ve öğretmen seçmelisin (listeler boşsa önce Kullanıcılar sekmesinden ekle).';
+      hataDiv.style.display = 'block';
+      return;
+    }
+
+    const { error } = await sb.from('ogrenci_ders_ogretmen').insert({
+      ogrenci_id: ogrenciId, ders_id: dersId, ogretmen_id: ogretmenId
+    });
+
+    if (error) {
+      hataDiv.textContent = 'Hata: ' + error.message;
+      hataDiv.style.display = 'block';
+      return;
+    }
+
+    basariliDiv.textContent = 'Atama kaydedildi.';
+    basariliDiv.style.display = 'block';
+    atamalariYukle();
+  }
+
+  async function atamalariYukle() {
+    const { data, error } = await sb
+      .from('ogrenci_ders_ogretmen')
+      .select('id, ogrenci_id, ders_id, ogretmen_id')
+      .order('created_at', { ascending: false });
+
+    if (error) return;
+
+    const dersMap = {};
+    const { data: dersler } = await sb.from('dersler').select('id, ders_adi');
+    (dersler || []).forEach(d => dersMap[d.id] = d.ders_adi);
+
+    const kullaniciMap = {};
+    tumKullanicilar.forEach(k => kullaniciMap[k.id] = k.ad_soyad);
+
+    document.getElementById('atamaTablosu').innerHTML = data.map(a => `
+      <tr>
+        <td>${kullaniciMap[a.ogrenci_id] || '?'}</td>
+        <td>${dersMap[a.ders_id] || '?'}</td>
+        <td>${kullaniciMap[a.ogretmen_id] || '?'}</td>
+        <td><button class="sil-btn" onclick="atamaSil('${a.id}')">Sil</button></td>
+      </tr>
+    `).join('');
+  }
+
+  async function atamaSil(id) {
+    if (!confirm('Bu atamayı silmek istediğine emin misin?')) return;
+    await sb.from('ogrenci_ders_ogretmen').delete().eq('id', id);
+    atamalariYukle();
+  }
+</script>
+
+</body>
+</html>
